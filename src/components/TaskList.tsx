@@ -7,7 +7,7 @@ export default async function TaskList() {
 
   if (tasks.length === 0) {
     return (
-      <div className="bg-white rounded-lg shadow-md p-6 text-center text-gray-500">
+      <div className="bg-white rounded-lg shadow-md p-6 text-center text-gray-700">
         No tasks yet. Create one to get started!
       </div>
     );
@@ -22,7 +22,7 @@ export default async function TaskList() {
   });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 text-gray-900">
       {sortedTasks.map((task) => (
         <Suspense 
           key={task._id}

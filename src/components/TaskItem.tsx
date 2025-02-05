@@ -1,5 +1,3 @@
-'use client';
-
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { Task } from '@/lib/definitions';
@@ -78,7 +76,7 @@ export default function TaskItem({ task }: TaskItemProps) {
               id="title"
               defaultValue={task.title}
               required
-              className="mt-1 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="mt-1 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900"
             />
           </div>
 
@@ -92,7 +90,7 @@ export default function TaskItem({ task }: TaskItemProps) {
               defaultValue={task.description}
               required
               rows={3}
-              className="mt-1 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="mt-1 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900"
             />
           </div>
 
@@ -106,7 +104,7 @@ export default function TaskItem({ task }: TaskItemProps) {
               id="dueDate"
               defaultValue={format(dueDate, 'yyyy-MM-dd')}
               required
-              className="mt-1 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="mt-1 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900"
             />
           </div>
 
@@ -157,10 +155,10 @@ export default function TaskItem({ task }: TaskItemProps) {
           <h3 className={`text-lg font-medium ${task.completed ? 'line-through text-gray-500' : 'text-gray-900'}`}>
             {task.title}
           </h3>
-          <p className="mt-1 text-sm text-gray-500 whitespace-pre-wrap">
+          <p className="mt-1 text-sm text-gray-700 whitespace-pre-wrap">
             {task.description}
           </p>
-          <div className="mt-2 flex items-center text-sm text-gray-500">
+          <div className="mt-2 flex items-center text-sm text-gray-700">
             <CalendarIcon className="h-4 w-4 mr-1" />
             <span className={isOverdue ? 'text-red-500' : ''}>
               Due: {format(dueDate, 'PPP')}
