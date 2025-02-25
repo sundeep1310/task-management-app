@@ -10,12 +10,16 @@ const app = express();
 
 // Middleware
 app.use(helmet()); // Security headers
-app.use(cors()); // Enable CORS for frontend
+app.use(cors({
+    origin: ['https://task-management-2rssj1kk0-sundeeps-projects-ad6b82fc.vercel.app', 'http://localhost:3000'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    credentials: true
+  })); // Enable CORS for frontend
 app.use(express.json()); // Parse JSON request body
 app.use(logger); // Request logging
 
 // API routes
-app.use('/api', taskRoutes);
+app.use('/api/tasks', taskRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
