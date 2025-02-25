@@ -11,7 +11,7 @@ const app = express();
 // Middleware
 app.use(helmet()); // Security headers
 app.use(cors({
-    origin: ['https://task-management-2rssj1kk0-sundeeps-projects-ad6b82fc.vercel.app', 'http://localhost:3000'],
+    origin: ['https://task-management-app-sundeeps-projects-ad6b82fc.vercel.app/', 'https://task-management-app-mauve-two.vercel.app/', 'http://localhost:3000'],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     credentials: true
   })); // Enable CORS for frontend
@@ -19,7 +19,7 @@ app.use(express.json()); // Parse JSON request body
 app.use(logger); // Request logging
 
 // API routes
-app.use('/api/tasks', taskRoutes);
+app.use('/', taskRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
