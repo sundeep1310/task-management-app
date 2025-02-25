@@ -1,0 +1,48 @@
+.summary-card {
+    background-color: var(--bg-card);
+    border-radius: 10px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    box-shadow: 0 2px 4px var(--shadow-color);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease;
+  }
+  
+  .summary-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px var(--shadow-color);
+  }
+  
+  .summary-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: rgba(0, 0, 0, 0.05);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 15px;
+    font-size: 20px;
+  }
+  
+  .summary-info {
+    flex: 1;
+  }
+  
+  .summary-title {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-bottom: 5px;
+  }
+  
+  .summary-count {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+  
+  .summary-total {
+    font-size: 16px;
+    color: var(--text-tertiary);
+    font-weight: 400;
+  }

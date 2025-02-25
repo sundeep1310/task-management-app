@@ -1,0 +1,87 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+:root {
+  /* Light theme variables */
+  --bg-primary: #f5f5f7;
+  --bg-secondary: #f1f2f4;
+  --bg-card: #ffffff;
+  --text-primary: #2d3748;
+  --text-secondary: #718096;
+  --text-tertiary: #a0aec0;
+  --border-color: #e2e8f0;
+  --shadow-color: rgba(0, 0, 0, 0.1);
+  --header-bg: #3182ce;
+  --header-text: #ffffff;
+  --footer-bg: #2d3748;
+  --footer-text: #ffffff;
+  
+  /* Column colors */
+  --color-todo: #4a5fef;
+  --color-progress: #ff9800;
+  --color-done: #4caf50;
+  --color-timeout: #f44336;
+  
+  /* Priority colors */
+  --priority-low-bg: #fff8e1;
+  --priority-low-text: #ffa000;
+  --priority-medium-bg: #e3f2fd;
+  --priority-medium-text: #1976d2;
+  --priority-high-bg: #ffebee;
+  --priority-high-text: #c62828;
+  --priority-completed-bg: #e8f5e9;
+  --priority-completed-text: #2e7d32;
+  --priority-expired-bg: #ffebee;
+  --priority-expired-text: #c62828;
+}
+
+.dark-theme {
+  /* Dark theme variables */
+  --bg-primary: #1a1c23;
+  --bg-secondary: #252836;
+  --bg-card: #303348;
+  --text-primary: #f7fafc;
+  --text-secondary: #cbd5e0;
+  --text-tertiary: #a0aec0;
+  --border-color: #4a5568;
+  --shadow-color: rgba(0, 0, 0, 0.3);
+  --header-bg: #2a4365;
+  --header-text: #ffffff;
+  --footer-bg: #1a202c;
+  --footer-text: #e2e8f0;
+  
+  /* Priority colors in dark mode - slightly adjusted for contrast */
+  --priority-low-bg: #4d4636;
+  --priority-low-text: #ffc107;
+  --priority-medium-bg: #253d5b;
+  --priority-medium-text: #64b5f6;
+  --priority-high-bg: #56343a;
+  --priority-high-text: #ef9a9a;
+  --priority-completed-bg: #265735;
+  --priority-completed-text: #81c784;
+  --priority-expired-bg: #56343a;
+  --priority-expired-text: #ef9a9a;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color: var(--text-primary);
+  line-height: 1.5;
+  background-color: var(--bg-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+button {
+  cursor: pointer;
+  font-family: inherit;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
