@@ -1,11 +1,12 @@
 import axios, { AxiosError } from 'axios';
 import { Task, TaskFormData, StreamItem } from '../types';
 
+const API_URL = process.env.REACT_APP_API_URL || 'https://task-management-app-mojv.onrender.com/api';
 // Create axios instance with base URL
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5000/api',
-  timeout: 10000, // 10 seconds timeout
-});
+    baseURL: `https://cors-anywhere.herokuapp.com/${API_URL}`,
+    timeout: 10000,
+  });
 
 // API error handler
 const handleApiError = (error: unknown): never => {
