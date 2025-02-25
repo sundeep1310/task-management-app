@@ -7,8 +7,10 @@ import logger from './middleware/logger';
 
 // Create Express application
 const app = express();
+const corsMiddleware = require('./middleware/corsMiddleware');
 
 // Middleware
+app.use(corsMiddleware);
 app.use(helmet()); // Security headers
 app.use(cors({
     origin: ['https://task-management-app-sundeeps-projects-ad6b82fc.vercel.app/', 'https://task-management-app-mauve-two.vercel.app/', 'http://localhost:3000'],
