@@ -29,15 +29,18 @@ export interface Task {
   streamingData?: any; // Additional data from streaming API
 }
 
-// File storage path for tasks
-const DATA_FILE = path.join(__dirname, '../../data/tasks.json');
-
-// Ensure data directory exists
-const dataDir = path.join(__dirname, '../../data');
+// Ensure absolute path resolution
+const basePath = process.cwd();
+const DATA_FILE = path.resolve(basePath, 'data/tasks.json');
+const dataDir = path.resolve(basePath, 'data');
 
 // Create directory if it doesn't exist
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
+try {
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+  }
+} catch (error) {
+  console.error('Error creating data directory:', error);
 }
 
 // In-memory database with file persistence
@@ -78,6 +81,12 @@ class TaskStore {
   // Save tasks to file storage
   private saveTasks(): void {
     try {
+      // Ensure directory exists before writing
+      const dir = path.dirname(DATA_FILE);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      
       fs.writeFileSync(DATA_FILE, JSON.stringify(this.tasks, null, 2));
     } catch (error) {
       console.error('Error saving tasks:', error);
@@ -116,17 +125,6 @@ class TaskStore {
           updatedAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000),
           dueDate: nextWeek,
           duration: 180
-        },
-        {
-          id: uuidv4(),
-          title: "Design database schema",
-          description: "Create entity-relationship diagrams and define models",
-          status: TaskStatus.TODO,
-          priority: TaskPriority.LOW,
-          createdAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000),
-          updatedAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000),
-          dueDate: tomorrow,
-          duration: 90
         }
       ];
       
@@ -135,17 +133,15 @@ class TaskStore {
     }
   }
 
-  // Find all tasks
+  // Rest of the methods remain the same as in previous implementation
   findAll(): Task[] {
     return this.tasks;
   }
 
-  // Find task by ID
   findById(id: string): Task | undefined {
     return this.tasks.find(task => task.id === id);
   }
 
-  // Create a new task
   create(taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>): Task {
     const now = new Date();
     const newTask: Task = {
@@ -160,7 +156,6 @@ class TaskStore {
     return newTask;
   }
 
-  // Update an existing task
   update(id: string, taskUpdate: Partial<Task>): Task | undefined {
     const index = this.tasks.findIndex(task => task.id === id);
     
@@ -179,7 +174,6 @@ class TaskStore {
     return updatedTask;
   }
 
-  // Delete a task
   delete(id: string): boolean {
     const initialLength = this.tasks.length;
     this.tasks = this.tasks.filter(task => task.id !== id);
@@ -194,13 +188,12 @@ class TaskStore {
 
   // Check for task timeouts
   checkTimeouts(timeoutMinutes: number = 4320): Task[] {
-    // Default timeout: 3 days (4320 minutes)
     const now = new Date();
     const timeoutTasks: Task[] = [];
     
     this.tasks.forEach(task => {
       if (task.status !== TaskStatus.DONE && task.status !== TaskStatus.TIMEOUT) {
-        const taskAge = (now.getTime() - task.createdAt.getTime()) / (1000 * 60); // Age in minutes
+        const taskAge = (now.getTime() - task.createdAt.getTime()) / (1000 * 60);
         
         if (taskAge > timeoutMinutes || (task.duration && task.duration > timeoutMinutes)) {
           task.status = TaskStatus.TIMEOUT;

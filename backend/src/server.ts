@@ -12,9 +12,13 @@ let server: Server;
 
 // Start the server
 function startServer(): void {
+  // Ensure absolute path for data directory
+  const dataDir = process.env.DATA_DIR || './data';
+  
   server = app.listen(PORT, () => {
     console.log(`Server is running on ${process.env.NODE_ENV || 'development'} mode`);
     console.log(`Port: ${PORT}`);
+    console.log(`Data Directory: ${dataDir}`);
     console.log(`API is available at http://localhost:${PORT}/api`);
   });
 }
