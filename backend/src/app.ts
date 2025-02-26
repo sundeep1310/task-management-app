@@ -10,6 +10,7 @@ const app = express();
 
 // Define allowed origins
 const allowedOrigins = [
+  'https://task-management-mdkrowuty-sundeeps-projects-ad6b82fc.vercel.app',
   'https://task-management-app-sandy-omega.vercel.app',
   'http://localhost:3000',
   'https://localhost:3000'
@@ -20,14 +21,21 @@ const corsOptions = {
   origin: function(origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      const msg = 'The CORS policy for this site does not allow access from the specified origin.';
-      callback(new Error(msg), false);
+      return callback(null, true);
     }
+    
+    console.warn(`CORS blocked for origin: ${origin}`);
+    const msg = 'The CORS policy for this site does not allow access from the specified origin.';
+    return callback(new Error(msg), false);
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Access-Control-Allow-Origin'],
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'Access-Control-Allow-Origin', 
+    'Access-Control-Allow-Methods',
+    'Access-Control-Allow-Headers'
+  ],
   credentials: true,
   optionsSuccessStatus: 200
 };

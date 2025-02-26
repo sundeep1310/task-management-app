@@ -14,11 +14,11 @@ class TaskApiService {
       timeout: 10000,
       headers: {
         'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': process.env.REACT_APP_FRONTEND_URL || '*'
+        'Access-Control-Allow-Origin': '*'
       }
     });
 
-    // Add request interceptor for logging (optional)
+    // Add request interceptor for logging and error handling
     this.api.interceptors.request.use(
       (config) => {
         console.log(`Sending request to: ${config.url}`, config.data);
@@ -27,10 +27,25 @@ class TaskApiService {
       (error) => Promise.reject(error)
     );
 
-    // Add response interceptor for error handling
+    // Add response interceptor for comprehensive error handling
     this.api.interceptors.response.use(
       (response) => response,
-      (error) => this.handleApiError(error)
+      (error: AxiosError) => {
+        // Log detailed error information
+        if (error.response) {
+          console.error('Server Error:', {
+            data: error.response.data,
+            status: error.response.status,
+            headers: error.response.headers
+          });
+        } else if (error.request) {
+          console.error('Network Error:', error.request);
+        } else {
+          console.error('Request Setup Error:', error.message);
+        }
+        
+        return Promise.reject(error);
+      }
     );
   }
 
@@ -65,6 +80,9 @@ class TaskApiService {
       const response = await this.api.get<Task[]>('/tasks');
       return response.data;
     } catch (error) {
+      if (axios.isAxiosError(error)) {
+        return this.handleApiError(error);
+      }
       throw error;
     }
   }
@@ -75,6 +93,9 @@ class TaskApiService {
       const response = await this.api.get<Task>(`/tasks/${id}`);
       return response.data;
     } catch (error) {
+      if (axios.isAxiosError(error)) {
+        return this.handleApiError(error);
+      }
       throw error;
     }
   }
@@ -85,6 +106,9 @@ class TaskApiService {
       const response = await this.api.post<Task>('/tasks', taskData);
       return response.data;
     } catch (error) {
+      if (axios.isAxiosError(error)) {
+        return this.handleApiError(error);
+      }
       throw error;
     }
   }
@@ -95,6 +119,9 @@ class TaskApiService {
       const response = await this.api.put<Task>(`/tasks/${id}`, taskData);
       return response.data;
     } catch (error) {
+      if (axios.isAxiosError(error)) {
+        return this.handleApiError(error);
+      }
       throw error;
     }
   }
@@ -104,6 +131,9 @@ class TaskApiService {
     try {
       await this.api.delete(`/tasks/${id}`);
     } catch (error) {
+      if (axios.isAxiosError(error)) {
+        this.handleApiError(error);
+      }
       throw error;
     }
   }
@@ -114,6 +144,9 @@ class TaskApiService {
       const response = await this.api.get<StreamItem[]>('/streaming');
       return response.data;
     } catch (error) {
+      if (axios.isAxiosError(error)) {
+        return this.handleApiError(error);
+      }
       throw error;
     }
   }
@@ -124,6 +157,9 @@ class TaskApiService {
       const response = await this.api.get<Task>(`/tasks/${id}/streaming`);
       return response.data;
     } catch (error) {
+      if (axios.isAxiosError(error)) {
+        return this.handleApiError(error);
+      }
       throw error;
     }
   }
