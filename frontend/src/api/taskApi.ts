@@ -1,103 +1,133 @@
-import axios, { AxiosError } from 'axios';
+import axios, { AxiosError, AxiosInstance } from 'axios';
 import { Task, TaskFormData, StreamItem } from '../types';
 
-// Create axios instance with base URL
-const api = axios.create({
-    baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5000/api',
-    timeout: 10000,
-  });
+class TaskApiService {
+  private api: AxiosInstance;
 
-// API error handler
-const handleApiError = (error: unknown): never => {
-  console.error('API Error:', error);
-  if (axios.isAxiosError(error)) {
-    const axiosError = error as AxiosError<{message?: string}>;
-    if (axiosError.response) {
+  constructor() {
+    // Determine API URL based on environment
+    const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+
+    // Create axios instance with base configuration
+    this.api = axios.create({
+      baseURL: API_URL,
+      timeout: 10000,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': process.env.REACT_APP_FRONTEND_URL || '*'
+      }
+    });
+
+    // Add request interceptor for logging (optional)
+    this.api.interceptors.request.use(
+      (config) => {
+        console.log(`Sending request to: ${config.url}`, config.data);
+        return config;
+      },
+      (error) => Promise.reject(error)
+    );
+
+    // Add response interceptor for error handling
+    this.api.interceptors.response.use(
+      (response) => response,
+      (error) => this.handleApiError(error)
+    );
+  }
+
+  // Comprehensive error handler
+  private handleApiError(error: AxiosError): never {
+    if (error.response) {
       // The request was made and the server responded with a status code
-      // that falls out of the range of 2xx
-      console.error('Response data:', axiosError.response.data);
-      console.error('Response status:', axiosError.response.status);
+      console.error('Server Error:', {
+        data: error.response.data,
+        status: error.response.status,
+        headers: error.response.headers
+      });
+
       throw new Error(
-        axiosError.response.data?.message || 'An error occurred while communicating with the server'
+        (error.response.data as any)?.message || 
+        'An error occurred while communicating with the server'
       );
-    } else if (axiosError.request) {
+    } else if (error.request) {
       // The request was made but no response was received
-      console.error('Request:', axiosError.request);
+      console.error('Network Error:', error.request);
       throw new Error('No response received from server. Please check your connection.');
+    } else {
+      // Something happened in setting up the request
+      console.error('Request Setup Error:', error.message);
+      throw new Error(error.message || 'An unexpected error occurred');
     }
   }
-  // Something happened in setting up the request that triggered an Error
-  throw new Error(error instanceof Error ? error.message : 'An unexpected error occurred');
-};
 
-// Task API methods
-export const taskApi = {
   // Fetch all tasks
-  getAllTasks: async (): Promise<Task[]> => {
+  async getAllTasks(): Promise<Task[]> {
     try {
-      const response = await api.get<Task[]>('/tasks');
+      const response = await this.api.get<Task[]>('/tasks');
       return response.data;
     } catch (error) {
-      return handleApiError(error);
+      throw error;
     }
-  },
+  }
 
-  // Fetch a task by ID
-  getTaskById: async (id: string): Promise<Task> => {
+  // Fetch a single task by ID
+  async getTaskById(id: string): Promise<Task> {
     try {
-      const response = await api.get<Task>(`/tasks/${id}`);
+      const response = await this.api.get<Task>(`/tasks/${id}`);
       return response.data;
     } catch (error) {
-      return handleApiError(error);
+      throw error;
     }
-  },
+  }
 
   // Create a new task
-  createTask: async (taskData: TaskFormData): Promise<Task> => {
+  async createTask(taskData: TaskFormData): Promise<Task> {
     try {
-      const response = await api.post<Task>('/tasks', taskData);
+      const response = await this.api.post<Task>('/tasks', taskData);
       return response.data;
     } catch (error) {
-      return handleApiError(error);
-    }
-  },
-
-  // Update a task
-  updateTask: async (id: string, taskData: Partial<TaskFormData>): Promise<Task> => {
-    try {
-      const response = await api.put<Task>(`/tasks/${id}`, taskData);
-      return response.data;
-    } catch (error) {
-      return handleApiError(error);
-    }
-  },
-
-  // Delete a task
-  deleteTask: async (id: string): Promise<void> => {
-    try {
-      await api.delete(`/tasks/${id}`);
-    } catch (error) {
-      return handleApiError(error);
-    }
-  },
-
-  // Fetch streaming data
-  getStreamingData: async (): Promise<StreamItem[]> => {
-    try {
-      const response = await api.get<StreamItem[]>('/streaming');
-      return response.data;
-    } catch (error) {
-      return handleApiError(error);
-    }
-  },
-
-  // Fetch task with streaming data
-  getTaskWithStreamingData: async (id: string): Promise<Task> => {
-    try {
-      const response = await api.get<Task>(`/tasks/${id}/streaming`);
-      return response.data;
-    } catch (error) {
-      return handleApiError(error);
+      throw error;
     }
   }
-};
+
+  // Update an existing task
+  async updateTask(id: string, taskData: Partial<TaskFormData>): Promise<Task> {
+    try {
+      const response = await this.api.put<Task>(`/tasks/${id}`, taskData);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Delete a task
+  async deleteTask(id: string): Promise<void> {
+    try {
+      await this.api.delete(`/tasks/${id}`);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Fetch streaming data
+  async getStreamingData(): Promise<StreamItem[]> {
+    try {
+      const response = await this.api.get<StreamItem[]>('/streaming');
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Fetch task with streaming data
+  async getTaskWithStreamingData(id: string): Promise<Task> {
+    try {
+      const response = await this.api.get<Task>(`/tasks/${id}/streaming`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+}
+
+// Export a singleton instance
+export const taskApi = new TaskApiService();
