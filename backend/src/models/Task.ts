@@ -1,5 +1,6 @@
-import fs from 'fs';
-import path from 'path';
+import * as fs from 'fs';
+import * as path from 'path';
+import { v4 as uuidv4 } from 'uuid';
 
 // Task model types
 export enum TaskStatus {
@@ -33,6 +34,8 @@ const DATA_FILE = path.join(__dirname, '../../data/tasks.json');
 
 // Ensure data directory exists
 const dataDir = path.join(__dirname, '../../data');
+
+// Create directory if it doesn't exist
 if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
@@ -81,18 +84,8 @@ class TaskStore {
     }
   }
 
-  // Check if store is initialized
-  isInitialized(): boolean {
-    return this.initialized;
-  }
-
-  // Mark store as initialized
-  setInitialized(): void {
-    this.initialized = true;
-  }
-
   // Initialize with sample tasks if needed
-  initializeSampleTasks(): void {
+  private initializeSampleTasks(): void {
     if (this.tasks.length === 0 && !this.initialized) {
       const now = new Date();
       const tomorrow = new Date(now);
@@ -103,7 +96,7 @@ class TaskStore {
       
       this.tasks = [
         {
-          id: "1",
+          id: uuidv4(),
           title: "Complete project setup",
           description: "Initialize repository and create project structure",
           status: TaskStatus.DONE,
@@ -114,7 +107,7 @@ class TaskStore {
           duration: 120
         },
         {
-          id: "2",
+          id: uuidv4(),
           title: "Implement user authentication",
           description: "Add login and registration functionality",
           status: TaskStatus.IN_PROGRESS,
@@ -125,7 +118,7 @@ class TaskStore {
           duration: 180
         },
         {
-          id: "3",
+          id: uuidv4(),
           title: "Design database schema",
           description: "Create entity-relationship diagrams and define models",
           status: TaskStatus.TODO,
@@ -137,26 +130,27 @@ class TaskStore {
         }
       ];
       
-      this.setInitialized();
       this.saveTasks();
+      this.initialized = true;
     }
   }
 
+  // Find all tasks
   findAll(): Task[] {
     return this.tasks;
   }
 
+  // Find task by ID
   findById(id: string): Task | undefined {
     return this.tasks.find(task => task.id === id);
   }
 
-  create(task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>): Task {
-    const { v4: uuidv4 } = require('uuid');
+  // Create a new task
+  create(taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>): Task {
     const now = new Date();
-    
     const newTask: Task = {
       id: uuidv4(),
-      ...task,
+      ...taskData,
       createdAt: now,
       updatedAt: now
     };
@@ -166,6 +160,7 @@ class TaskStore {
     return newTask;
   }
 
+  // Update an existing task
   update(id: string, taskUpdate: Partial<Task>): Task | undefined {
     const index = this.tasks.findIndex(task => task.id === id);
     
@@ -184,6 +179,7 @@ class TaskStore {
     return updatedTask;
   }
 
+  // Delete a task
   delete(id: string): boolean {
     const initialLength = this.tasks.length;
     this.tasks = this.tasks.filter(task => task.id !== id);
@@ -196,6 +192,7 @@ class TaskStore {
     return false;
   }
 
+  // Check for task timeouts
   checkTimeouts(timeoutMinutes: number = 4320): Task[] {
     // Default timeout: 3 days (4320 minutes)
     const now = new Date();

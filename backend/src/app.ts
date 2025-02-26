@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import helmet from 'helmet';
 import taskRoutes from './routes/taskRoutes';
 import errorHandler from './middleware/errorHandler';
@@ -17,7 +17,7 @@ const allowedOrigins = [
 ];
 
 // Configure CORS middleware
-const corsOptions = {
+const corsOptions: cors.CorsOptions = {
   origin: function(origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin || allowedOrigins.includes(origin)) {
@@ -54,7 +54,7 @@ app.options('*', cors(corsOptions));
 app.use('/api', taskRoutes);
 
 // Health check endpoint
-app.get('/health', (req, res) => {
+app.get('/health', (req: Request, res: Response) => {
   res.status(200).json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
@@ -63,7 +63,7 @@ app.get('/health', (req, res) => {
 });
 
 // 404 handler
-app.use((req, res) => {
+app.use((req: Request, res: Response) => {
   res.status(404).json({ message: 'Endpoint not found' });
 });
 
