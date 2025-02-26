@@ -8,25 +8,19 @@ import cors from 'cors';
 // Create Express application
 const app = express();
 
-// Configure CORS
-const allowedOrigins = [
-  'https://task-management-app-sundeeps-projects-ad6b82fc.vercel.app',
-  'https://task-management-app-mauve-two.vercel.app',
-  'https://task-management-app-bice-one.vercel.app/',
-  'http://localhost:3000'
-];
+// Get allowed origins from environment variable
+const allowedOrigins = (process.env.CORS_ORIGINS || '').split(',');
 
-// Apply CORS middleware first
+// Configure CORS
 app.use(cors({
   origin: function(origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.indexOf(origin) === -1) {
-      const msg = 'The CORS policy for this site does not allow access from the specified origin.';
-      return callback(new Error(msg), false);
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
     }
-    return callback(null, true);
+    
+    const msg = 'The CORS policy for this site does not allow access from the specified origin.';
+    return callback(new Error(msg), false);
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   credentials: true
@@ -42,7 +36,7 @@ app.use('/api', taskRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'ok' });
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 // 404 handler
