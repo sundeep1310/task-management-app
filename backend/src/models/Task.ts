@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
+import config from '../config';
 
 // Task model types
 export enum TaskStatus {
@@ -31,55 +32,72 @@ export interface Task {
 
 // Ensure absolute path resolution
 const basePath = process.cwd();
-const DATA_FILE = path.resolve(basePath, 'data/tasks.json');
-const dataDir = path.resolve(basePath, 'data');
+const dataDir = path.resolve(basePath, config.dataDir);
+const DATA_FILE = path.resolve(dataDir, 'tasks.json');
 
 // Create directory if it doesn't exist
 try {
   if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });
+    console.log(`Created data directory at: ${dataDir}`);
   }
 } catch (error) {
   console.error('Error creating data directory:', error);
 }
 
-// In-memory database with file persistence
+// In-memory database with optional file persistence
 class TaskStore {
   private tasks: Task[] = [];
   private initialized: boolean = false;
+  private useFileSystem: boolean = true;
 
   constructor() {
+    // Determine if we should use file system based on environment
+    // On platforms like Render with ephemeral filesystem, we might want
+    // to disable file persistence or use an alternative
+    this.useFileSystem = process.env.DISABLE_FILE_STORAGE !== 'true';
     this.loadTasks();
   }
 
-  // Load tasks from file storage
+  // Load tasks from file storage or initialize with samples
   private loadTasks(): void {
-    try {
-      if (fs.existsSync(DATA_FILE)) {
-        const data = fs.readFileSync(DATA_FILE, 'utf8');
-        const parsedData = JSON.parse(data);
-        
-        // Convert string dates back to Date objects
-        this.tasks = parsedData.map((task: any) => ({
-          ...task,
-          createdAt: new Date(task.createdAt),
-          updatedAt: new Date(task.updatedAt),
-          dueDate: task.dueDate ? new Date(task.dueDate) : new Date()
-        }));
-        
-        this.initialized = true;
-      } else {
-        // If no file exists, create sample tasks on first run
+    if (this.useFileSystem) {
+      try {
+        if (fs.existsSync(DATA_FILE)) {
+          const data = fs.readFileSync(DATA_FILE, 'utf8');
+          const parsedData = JSON.parse(data);
+          
+          // Convert string dates back to Date objects
+          this.tasks = parsedData.map((task: any) => ({
+            ...task,
+            createdAt: new Date(task.createdAt),
+            updatedAt: new Date(task.updatedAt),
+            dueDate: task.dueDate ? new Date(task.dueDate) : new Date()
+          }));
+          
+          this.initialized = true;
+          console.log(`Loaded ${this.tasks.length} tasks from storage`);
+        } else {
+          // If no file exists, create sample tasks on first run
+          this.initializeSampleTasks();
+        }
+      } catch (error) {
+        console.error('Error loading tasks:', error);
         this.initializeSampleTasks();
       }
-    } catch (error) {
-      console.error('Error loading tasks:', error);
+    } else {
+      // Skip file system operations in environments where it's not supported
       this.initializeSampleTasks();
+      console.log('Running with in-memory storage only (file persistence disabled)');
     }
   }
 
   // Save tasks to file storage
   private saveTasks(): void {
+    if (!this.useFileSystem) {
+      return; // Skip saving if file system is disabled
+    }
+    
     try {
       // Ensure directory exists before writing
       const dir = path.dirname(DATA_FILE);
@@ -130,18 +148,21 @@ class TaskStore {
       
       this.saveTasks();
       this.initialized = true;
+      console.log('Initialized with sample tasks');
     }
   }
 
-  // Rest of the methods remain the same as in previous implementation
+  // Find all tasks
   findAll(): Task[] {
     return this.tasks;
   }
 
+  // Find task by ID
   findById(id: string): Task | undefined {
     return this.tasks.find(task => task.id === id);
   }
 
+  // Create a new task
   create(taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>): Task {
     const now = new Date();
     const newTask: Task = {
@@ -156,6 +177,7 @@ class TaskStore {
     return newTask;
   }
 
+  // Update an existing task
   update(id: string, taskUpdate: Partial<Task>): Task | undefined {
     const index = this.tasks.findIndex(task => task.id === id);
     
@@ -174,6 +196,7 @@ class TaskStore {
     return updatedTask;
   }
 
+  // Delete a task
   delete(id: string): boolean {
     const initialLength = this.tasks.length;
     this.tasks = this.tasks.filter(task => task.id !== id);

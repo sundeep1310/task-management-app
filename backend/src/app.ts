@@ -4,23 +4,16 @@ import taskRoutes from './routes/taskRoutes';
 import errorHandler from './middleware/errorHandler';
 import logger from './middleware/logger';
 import cors from 'cors';
+import config from './config';
 
 // Create Express application
 const app = express();
-
-// Define allowed origins
-const allowedOrigins = [
-  'https://task-management-mdkrowuty-sundeeps-projects-ad6b82fc.vercel.app',
-  'https://task-management-app-sandy-omega.vercel.app',
-  'http://localhost:3000',
-  'https://localhost:3000'
-];
 
 // Configure CORS middleware
 const corsOptions: cors.CorsOptions = {
   origin: function(origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
     // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (!origin || config.allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
     
@@ -58,7 +51,8 @@ app.get('/health', (req: Request, res: Response) => {
   res.status(200).json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
-    allowedOrigins: allowedOrigins
+    nodeEnv: config.nodeEnv,
+    allowedOrigins: config.allowedOrigins
   });
 });
 

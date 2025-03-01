@@ -6,22 +6,35 @@ class TaskApiService {
 
   constructor() {
     // Determine API URL based on environment
-    const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+    // For production deployments to Vercel, get the production API URL
+    let API_URL = process.env.REACT_APP_API_URL;
+    
+    // If API_URL is not set, use a dynamic fallback based on the environment
+    if (!API_URL) {
+      const isProduction = process.env.NODE_ENV === 'production';
+      
+      // In production, determine if we're deployed to Vercel and get the URL from there
+      // Otherwise, fallback to the deployed render URL
+      API_URL = isProduction 
+        ? 'https://task-management-backend-xvui.onrender.com/api'
+        : 'http://localhost:5000/api';
+    }
+    
+    console.log('Using API URL:', API_URL);
 
     // Create axios instance with base configuration
     this.api = axios.create({
       baseURL: API_URL,
-      timeout: 10000,
+      timeout: 15000, // Increase timeout for slower server response on free tier
       headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
+        'Content-Type': 'application/json'
       }
     });
 
     // Add request interceptor for logging and error handling
     this.api.interceptors.request.use(
       (config) => {
-        console.log(`Sending request to: ${config.url}`, config.data);
+        console.log(`Sending request to: ${config.url}`);
         return config;
       },
       (error) => Promise.reject(error)
