@@ -2,6 +2,35 @@ import React, { createContext, useContext, useReducer, useEffect, ReactNode } fr
 import { Task, TaskStatus, TaskFormData, TaskContextState, TaskPriority } from '../types';
 import { taskApi } from '../api/taskApi';
 
+// Create a custom type that extends RequestInit with timeout
+interface FetchWithTimeoutOptions extends RequestInit {
+  timeout?: number;
+}
+
+// Implement fetch with timeout support
+const fetchWithTimeout = async (url: string, options: FetchWithTimeoutOptions = {}): Promise<Response> => {
+  const { timeout, ...fetchOptions } = options;
+  
+  if (!timeout) {
+    return fetch(url, fetchOptions);
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+  
+  try {
+    const response = await fetch(url, {
+      ...fetchOptions,
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    return response;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    throw error;
+  }
+};
+
 // Define the context actions
 type TaskAction =
   | { type: 'FETCH_TASKS_REQUEST' }
@@ -14,7 +43,8 @@ type TaskAction =
   | { type: 'SET_CATEGORY'; payload: TaskStatus | 'ALL' }
   | { type: 'CHECK_TIMEOUTS' }
   | { type: 'TOGGLE_DARK_MODE' }
-  | { type: 'MOVE_TASK'; payload: { taskId: string, newStatus: TaskStatus } };
+  | { type: 'MOVE_TASK'; payload: { taskId: string, newStatus: TaskStatus } }
+  | { type: 'SERVER_WAKING'; payload: boolean };
 
 // Initial state
 const initialState: TaskContextState = {
@@ -27,7 +57,7 @@ const initialState: TaskContextState = {
 };
 
 // Create context
-const TaskContext = createContext<{
+interface TaskContextValue {
   state: TaskContextState;
   fetchTasks: () => Promise<void>;
   getTaskById: (id: string) => Promise<void>;
@@ -38,7 +68,11 @@ const TaskContext = createContext<{
   checkTimeouts: () => void;
   toggleDarkMode: () => void;
   moveTask: (taskId: string, newStatus: TaskStatus) => Promise<void>;
-}>({
+  refreshTasks: () => Promise<void>;
+  wakeUpServer: () => Promise<boolean>;
+}
+
+const TaskContext = createContext<TaskContextValue>({
   state: initialState,
   fetchTasks: async () => {},
   getTaskById: async () => {},
@@ -49,6 +83,8 @@ const TaskContext = createContext<{
   checkTimeouts: () => {},
   toggleDarkMode: () => {},
   moveTask: async () => {},
+  refreshTasks: async () => {},
+  wakeUpServer: async () => false,
 });
 
 // Reducer function
@@ -65,6 +101,7 @@ const taskReducer = (state: TaskContextState, action: TaskAction): TaskContextSt
         ...state,
         loading: false,
         tasks: action.payload,
+        error: null,
       };
     case 'FETCH_TASKS_FAILURE':
       return {
@@ -150,6 +187,11 @@ const taskReducer = (state: TaskContextState, action: TaskAction): TaskContextSt
             : task
         ),
       };
+    case 'SERVER_WAKING':
+      return {
+        ...state,
+        loading: action.payload,
+      };
     default:
       return state;
   }
@@ -168,8 +210,29 @@ export const TaskProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, [state.darkMode]);
 
-  // Fetch all tasks
-  const fetchTasks = async () => {
+  // Try to wake up the server if it's asleep
+  const wakeUpServer = async (): Promise<boolean> => {
+    dispatch({ type: 'SERVER_WAKING', payload: true });
+    try {
+      // Try to hit the health endpoint to wake up the server
+      const apiURL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+      const response = await fetchWithTimeout(`${apiURL}/health`, {
+        method: 'GET',
+        timeout: 30000
+      });
+      const success = response.status === 200;
+      console.log('Server wake-up attempt:', success ? 'successful' : 'failed');
+      return success;
+    } catch (error) {
+      console.warn('Failed to wake up server:', error);
+      return false;
+    } finally {
+      dispatch({ type: 'SERVER_WAKING', payload: false });
+    }
+  };
+
+  // Fetch all tasks with retry logic
+  const fetchTasks = async (retries = 2): Promise<void> => {
     dispatch({ type: 'FETCH_TASKS_REQUEST' });
     try {
       const tasks = await taskApi.getAllTasks();
@@ -184,8 +247,22 @@ export const TaskProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       
       dispatch({ type: 'FETCH_TASKS_SUCCESS', payload: tasksWithPriority });
     } catch (error) {
-      dispatch({ type: 'FETCH_TASKS_FAILURE', payload: (error as Error).message });
+      if (retries > 0) {
+        // If server might be waking up, wait and retry
+        console.log(`Retrying fetch tasks in 3 seconds (${retries} retries left)...`);
+        setTimeout(() => fetchTasks(retries - 1), 3000);
+      } else {
+        dispatch({ type: 'FETCH_TASKS_FAILURE', payload: (error as Error).message });
+      }
     }
+  };
+
+  // Force refresh tasks (useful after server wakes up)
+  const refreshTasks = async (): Promise<void> => {
+    // First try to wake up server if needed
+    await wakeUpServer();
+    // Then fetch tasks with a clean slate
+    return fetchTasks(2);
   };
 
   // Get task by ID
@@ -273,15 +350,25 @@ export const TaskProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  // Real-time polling for task updates (every 30 seconds)
+  // Initial data load when component mounts
   useEffect(() => {
-    // Initial fetch
-    fetchTasks();
+    const loadInitialData = async () => {
+      // Try to wake up the server first, then fetch tasks
+      const isServerAwake = await wakeUpServer();
+      if (isServerAwake) {
+        await fetchTasks();
+      } else {
+        // If server wake-up failed, still try to fetch
+        fetchTasks();
+      }
+    };
     
-    // Set up polling
+    loadInitialData();
+    
+    // Set up polling at longer intervals to maintain connection
     const pollingInterval = setInterval(() => {
-      fetchTasks();
-    }, 30000); // 30 seconds
+      fetchTasks(1); // Only retry once during polling
+    }, 60000); // Check every minute
     
     // Clean up on unmount
     return () => clearInterval(pollingInterval);
@@ -307,6 +394,8 @@ export const TaskProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         checkTimeouts,
         toggleDarkMode,
         moveTask,
+        refreshTasks,
+        wakeUpServer
       }}
     >
       {children}

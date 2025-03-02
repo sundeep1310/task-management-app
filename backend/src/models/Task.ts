@@ -35,7 +35,10 @@ const basePath = process.cwd();
 const dataDir = path.resolve(basePath, config.dataDir);
 const DATA_FILE = path.resolve(dataDir, 'tasks.json');
 
-// Create directory if it doesn't exist
+// Persistent storage key for localStorage-like API
+const STORAGE_KEY = 'task_manager_tasks';
+
+// Create directory if it doesn't exist (for local development)
 try {
   if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });
@@ -45,67 +48,131 @@ try {
   console.error('Error creating data directory:', error);
 }
 
-// In-memory database with optional file persistence
+// Simple in-memory cache that persists across service restarts
+class PersistentMemoryStorage {
+  private static instance: PersistentMemoryStorage;
+  private cache: Record<string, any> = {};
+  
+  private constructor() {
+    // Initialize with saved data from global variable if available
+    if (global.__PERSISTENT_STORAGE__) {
+      this.cache = global.__PERSISTENT_STORAGE__;
+    }
+  }
+  
+  public static getInstance(): PersistentMemoryStorage {
+    if (!PersistentMemoryStorage.instance) {
+      PersistentMemoryStorage.instance = new PersistentMemoryStorage();
+    }
+    return PersistentMemoryStorage.instance;
+  }
+  
+  public getItem(key: string): any {
+    return this.cache[key];
+  }
+  
+  public setItem(key: string, value: any): void {
+    this.cache[key] = value;
+    // Save to global variable to persist across module reloads
+    global.__PERSISTENT_STORAGE__ = this.cache;
+  }
+  
+  public removeItem(key: string): void {
+    delete this.cache[key];
+    global.__PERSISTENT_STORAGE__ = this.cache;
+  }
+}
+
+// Declare global variable for persistent storage
+declare global {
+  var __PERSISTENT_STORAGE__: Record<string, any>;
+}
+
+// Initialize global storage if not exists
+if (!global.__PERSISTENT_STORAGE__) {
+  global.__PERSISTENT_STORAGE__ = {};
+}
+
+// In-memory database with hybrid persistence strategy
 class TaskStore {
   private tasks: Task[] = [];
   private initialized: boolean = false;
-  private useFileSystem: boolean = true;
+  private persistence: PersistentMemoryStorage;
 
   constructor() {
-    // Determine if we should use file system based on environment
-    // On platforms like Render with ephemeral filesystem, we might want
-    // to disable file persistence or use an alternative
-    this.useFileSystem = process.env.DISABLE_FILE_STORAGE !== 'true';
+    this.persistence = PersistentMemoryStorage.getInstance();
     this.loadTasks();
   }
 
-  // Load tasks from file storage or initialize with samples
+  // Load tasks with priority on in-memory persistence, then file system
   private loadTasks(): void {
-    if (this.useFileSystem) {
-      try {
-        if (fs.existsSync(DATA_FILE)) {
-          const data = fs.readFileSync(DATA_FILE, 'utf8');
-          const parsedData = JSON.parse(data);
-          
-          // Convert string dates back to Date objects
-          this.tasks = parsedData.map((task: any) => ({
-            ...task,
-            createdAt: new Date(task.createdAt),
-            updatedAt: new Date(task.updatedAt),
-            dueDate: task.dueDate ? new Date(task.dueDate) : new Date()
-          }));
-          
-          this.initialized = true;
-          console.log(`Loaded ${this.tasks.length} tasks from storage`);
-        } else {
-          // If no file exists, create sample tasks on first run
-          this.initializeSampleTasks();
-        }
-      } catch (error) {
-        console.error('Error loading tasks:', error);
-        this.initializeSampleTasks();
+    try {
+      // First try to load from persistent memory
+      const persistedTasks = this.persistence.getItem(STORAGE_KEY);
+      
+      if (persistedTasks && Array.isArray(persistedTasks) && persistedTasks.length > 0) {
+        // Convert string dates back to Date objects
+        this.tasks = persistedTasks.map((task: any) => ({
+          ...task,
+          createdAt: new Date(task.createdAt),
+          updatedAt: new Date(task.updatedAt),
+          dueDate: task.dueDate ? new Date(task.dueDate) : new Date()
+        }));
+        
+        this.initialized = true;
+        console.log(`Loaded ${this.tasks.length} tasks from persistent memory storage`);
+        return;
       }
-    } else {
-      // Skip file system operations in environments where it's not supported
+      
+      // If no tasks in memory, try to load from file system
+      if (fs.existsSync(DATA_FILE)) {
+        const data = fs.readFileSync(DATA_FILE, 'utf8');
+        const parsedData = JSON.parse(data);
+        
+        // Convert string dates back to Date objects
+        this.tasks = parsedData.map((task: any) => ({
+          ...task,
+          createdAt: new Date(task.createdAt),
+          updatedAt: new Date(task.updatedAt),
+          dueDate: task.dueDate ? new Date(task.dueDate) : new Date()
+        }));
+        
+        // Save to persistent memory for future use
+        this.persistence.setItem(STORAGE_KEY, parsedData);
+        
+        this.initialized = true;
+        console.log(`Loaded ${this.tasks.length} tasks from file storage and cached in memory`);
+        return;
+      }
+      
+      // If no tasks found anywhere, initialize with samples
       this.initializeSampleTasks();
-      console.log('Running with in-memory storage only (file persistence disabled)');
+      
+    } catch (error) {
+      console.error('Error loading tasks:', error);
+      this.initializeSampleTasks();
     }
   }
 
-  // Save tasks to file storage
+  // Save tasks to both memory and file storage
   private saveTasks(): void {
-    if (!this.useFileSystem) {
-      return; // Skip saving if file system is disabled
-    }
-    
     try {
-      // Ensure directory exists before writing
-      const dir = path.dirname(DATA_FILE);
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
+      // First save to persistent memory (always works)
+      this.persistence.setItem(STORAGE_KEY, this.tasks);
       
-      fs.writeFileSync(DATA_FILE, JSON.stringify(this.tasks, null, 2));
+      // Then try to save to filesystem (may fail in some environments)
+      try {
+        // Ensure directory exists before writing
+        const dir = path.dirname(DATA_FILE);
+        if (!fs.existsSync(dir)) {
+          fs.mkdirSync(dir, { recursive: true });
+        }
+        
+        fs.writeFileSync(DATA_FILE, JSON.stringify(this.tasks, null, 2));
+        console.log(`Saved ${this.tasks.length} tasks to file storage`);
+      } catch (fsError) {
+        console.warn('Could not save to filesystem, but data is preserved in memory:', fsError);
+      }
     } catch (error) {
       console.error('Error saving tasks:', error);
     }

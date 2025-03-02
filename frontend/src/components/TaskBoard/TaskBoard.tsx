@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Task, TaskStatus } from '../../types';
 import { useTaskContext } from '../../context/TaskContext';
 import TaskColumn from '../TaskColumn/TaskColumn';
@@ -11,15 +11,37 @@ interface TaskBoardProps {
 }
 
 const TaskBoard: React.FC<TaskBoardProps> = ({ searchTerm = '' }) => {
-  const { state } = useTaskContext();
-  const { tasks } = state;
+  const { state, refreshTasks, wakeUpServer } = useTaskContext();
+  const { tasks, loading, error } = state;
   const [showForm, setShowForm] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [serverWaking, setServerWaking] = useState(false);
 
   const filteredTasks = tasks.filter(task => 
     task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     task.description.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // On first load, try to wake up the server if needed
+  useEffect(() => {
+    const wakeUpServerIfNeeded = async () => {
+      if (tasks.length === 0 && !loading && !error) {
+        setServerWaking(true);
+        try {
+          // Try to wake up the server
+          await wakeUpServer();
+          // Then refresh tasks
+          await refreshTasks();
+        } catch (err) {
+          console.error("Failed to wake up server:", err);
+        } finally {
+          setServerWaking(false);
+        }
+      }
+    };
+    
+    wakeUpServerIfNeeded();
+  }, []);
 
   // Count tasks by status
   const countTasksByStatus = (status: TaskStatus | 'EXPIRED') => {
@@ -45,9 +67,40 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ searchTerm = '' }) => {
     setEditingTask(null);
   };
 
+  const handleRetryLoad = async () => {
+    setServerWaking(true);
+    try {
+      await refreshTasks();
+    } finally {
+      setServerWaking(false);
+    }
+  };
+
   const expiredTasksCount = countTasksByStatus('EXPIRED');
   const activeTasksCount = filteredTasks.length;
   const completedTasksCount = countTasksByStatus(TaskStatus.DONE);
+
+  // Show loading spinner while tasks are loading
+  if (loading || serverWaking) {
+    return (
+      <div className="task-board-loading">
+        <div className="loading-spinner"></div>
+        <p>{serverWaking ? "Waking up server... This may take up to 30 seconds." : "Loading tasks..."}</p>
+      </div>
+    );
+  }
+
+  // Show error message if loading failed
+  if (error) {
+    return (
+      <div className="task-board-error">
+        <h3>Error Loading Tasks</h3>
+        <p>{error}</p>
+        <p className="error-detail">The server might be waking up from sleep mode. Please try again.</p>
+        <button className="retry-button" onClick={handleRetryLoad}>Retry</button>
+      </div>
+    );
+  }
 
   return (
     <div className="task-board-container">

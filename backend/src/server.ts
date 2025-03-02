@@ -2,6 +2,8 @@ import 'dotenv/config';
 import app from './app';
 import { Server } from 'http';
 import config from './config';
+// Use require for axios to avoid TypeScript error
+const axios = require('axios');
 
 // Declare server variable
 let server: Server;
@@ -15,6 +17,24 @@ function startServer(): void {
     console.log(`API is available at http://localhost:${config.port}/api`);
     console.log(`Allowed origins: ${config.allowedOrigins.join(', ')}`);
   });
+}
+
+// Keep the server alive to prevent Render from sleeping
+function setupKeepAlive(): void {
+  if (config.isProd && process.env.KEEP_ALIVE === 'true') {
+    const serverUrl = process.env.SERVER_URL || `http://localhost:${config.port}`;
+    console.log(`Setting up keep-alive for: ${serverUrl}`);
+    
+    // Ping the server every 14 minutes to prevent it from sleeping
+    setInterval(async () => {
+      try {
+        const response = await axios.get(`${serverUrl}/health`);
+        console.log(`Keep-alive ping successful: ${response.status}`);
+      } catch (error) {
+        console.error('Keep-alive ping failed:', error);
+      }
+    }, 14 * 60 * 1000); // 14 minutes
+  }
 }
 
 // Graceful shutdown
@@ -54,3 +74,6 @@ process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
 
 // Start the server
 startServer();
+
+// Set up keep-alive to prevent service from sleeping (for render.com)
+setupKeepAlive();
