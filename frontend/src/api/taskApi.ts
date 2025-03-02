@@ -24,10 +24,9 @@ class TaskApiService {
     if (!API_URL) {
       const isProduction = process.env.NODE_ENV === 'production';
       
-      // In production, determine if we're deployed to Vercel and get the URL from there
-      // Otherwise, fallback to the deployed render URL
+      // In production, use the Render URL
       API_URL = isProduction 
-        ? 'https://task-management-backend-xvui.onrender.com/api'
+        ? 'https://task-management-app-ucah.onrender.com/api'
         : 'http://localhost:5000/api';
     }
     

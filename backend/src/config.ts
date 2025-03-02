@@ -1,3 +1,4 @@
+// src/config.ts
 import dotenv from 'dotenv';
 
 // Load environment variables from .env file
@@ -16,10 +17,12 @@ const config: Config = {
   nodeEnv: process.env.NODE_ENV || 'development',
   dataDir: process.env.DATA_DIR || './data',
   allowedOrigins: [
-    'https://task-management-mdkrowuty-sundeeps-projects-ad6b82fc.vercel.app',
+    // Your specific Vercel URLs
     'https://task-management-app-sandy-omega.vercel.app',
-    'https://task-management-app-bice-one.vercel.app',
+    'https://task-management-r0pvpvsbg-sundeeps-projects-ad6b82fc.vercel.app',
+    // Allow custom origins from environment variable
     ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : []),
+    // Local development URLs
     'http://localhost:3000',
     'https://localhost:3000'
   ],

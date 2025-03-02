@@ -9,7 +9,6 @@ interface TaskCardProps {
 }
 
 const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit }) => {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { deleteTask } = useTaskContext();
   const cardRef = useRef<HTMLDivElement>(null);
   const [showMenu, setShowMenu] = useState(false);
@@ -21,32 +20,41 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit }) => {
     return `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear().toString().substr(-2)}`;
   };
 
-  // Calculate days until due
-  const getDaysUntilDue = (): { text: string, className: string } => {
-    if (!task.dueDate) {
-      return { text: 'No deadline', className: '' };
-    }
-    
-    const dueDate = new Date(task.dueDate);
-    const today = new Date();
-    
-    // Set both dates to the start of the day for accurate day calculation
-    today.setHours(0, 0, 0, 0);
-    dueDate.setHours(0, 0, 0, 0);
-    
-    const diffTime = dueDate.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    if (diffDays < 0) {
-      return { text: `${Math.abs(diffDays)} days overdue`, className: 'overdue' };
-    } else if (diffDays === 0) {
-      return { text: 'Due today', className: 'due-today' };
-    } else if (diffDays === 1) {
-      return { text: 'Due tomorrow', className: 'due-soon' };
-    } else if (diffDays <= 3) {
-      return { text: `Due in ${diffDays} days`, className: 'due-soon' };
+  // Get display text for dates based on task status
+  const getDateDisplay = () => {
+    if (task.status === TaskStatus.DONE) {
+      return {
+        label: 'Completed on:',
+        text: formatDate(task.updatedAt.toString()),
+        className: 'task-completed'
+      };
     } else {
-      return { text: `Due in ${diffDays} days`, className: '' };
+      // Original due date logic for non-completed tasks
+      if (!task.dueDate) {
+        return { text: 'No deadline', className: '', label: 'Due:' };
+      }
+      
+      const dueDate = new Date(task.dueDate);
+      const today = new Date();
+      
+      // Set both dates to the start of the day for accurate day calculation
+      today.setHours(0, 0, 0, 0);
+      dueDate.setHours(0, 0, 0, 0);
+      
+      const diffTime = dueDate.getTime() - today.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      if (diffDays < 0) {
+        return { text: `${Math.abs(diffDays)} days overdue`, className: 'overdue', label: 'Due:' };
+      } else if (diffDays === 0) {
+        return { text: 'Due today', className: 'due-today', label: 'Due:' };
+      } else if (diffDays === 1) {
+        return { text: 'Due tomorrow', className: 'due-soon', label: 'Due:' };
+      } else if (diffDays <= 3) {
+        return { text: `Due in ${diffDays} days`, className: 'due-soon', label: 'Due:' };
+      } else {
+        return { text: `Due in ${diffDays} days`, className: '', label: 'Due:' };
+      }
     }
   };
 
@@ -157,7 +165,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit }) => {
   };
 
   const priority = getPriorityLabel();
-  const dueInfo = getDaysUntilDue();
+  const dateInfo = getDateDisplay();
 
   return (
     <div 
@@ -205,11 +213,16 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit }) => {
       <div className="task-footer">
         <div className="task-dates">
           <div className="task-deadline">
-            <span className="deadline-label">Due:</span> {formatDate(task.dueDate)}
+            <span className="deadline-label">{dateInfo.label}</span> 
+            {task.status === TaskStatus.DONE 
+              ? formatDate(task.updatedAt.toString()) 
+              : formatDate(task.dueDate.toString())}
           </div>
-          <div className={`task-due-status ${dueInfo.className}`}>
-            {dueInfo.text}
-          </div>
+          {task.status !== TaskStatus.DONE && (
+            <div className={`task-due-status ${dateInfo.className}`}>
+              {dateInfo.text}
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -336,6 +336,8 @@ export const TaskProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // Find the current task to preserve its priority
       const task = state.tasks.find(t => t.id === taskId);
       if (task) {
+        // When moving to Done status, the backend will automatically update 
+        // the updatedAt timestamp, we don't need to send it as part of TaskFormData
         await updateTask(taskId, { 
           status: newStatus,
           priority: task.priority // Preserve the priority
