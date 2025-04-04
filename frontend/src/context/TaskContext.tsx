@@ -41,7 +41,7 @@ type TaskAction =
   | { type: 'UPDATE_TASK'; payload: Task }
   | { type: 'DELETE_TASK'; payload: string }
   | { type: 'SET_CATEGORY'; payload: TaskStatus | 'ALL' }
-  | { type: 'CHECK_TIMEOUTS' }
+  | { type: 'CHECK_OVERDUE' }
   | { type: 'TOGGLE_DARK_MODE' }
   | { type: 'MOVE_TASK'; payload: { taskId: string, newStatus: TaskStatus } }
   | { type: 'SERVER_WAKING'; payload: boolean };
@@ -65,7 +65,7 @@ interface TaskContextValue {
   updateTask: (id: string, taskData: Partial<TaskFormData>) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
   setSelectedCategory: (category: TaskStatus | 'ALL') => void;
-  checkTimeouts: () => void;
+  checkOverdue: () => void;
   toggleDarkMode: () => void;
   moveTask: (taskId: string, newStatus: TaskStatus) => Promise<void>;
   refreshTasks: () => Promise<void>;
@@ -80,7 +80,7 @@ const TaskContext = createContext<TaskContextValue>({
   updateTask: async () => {},
   deleteTask: async () => {},
   setSelectedCategory: () => {},
-  checkTimeouts: () => {},
+  checkOverdue: () => {},
   toggleDarkMode: () => {},
   moveTask: async () => {},
   refreshTasks: async () => {},
@@ -138,29 +138,30 @@ const taskReducer = (state: TaskContextState, action: TaskAction): TaskContextSt
         ...state,
         selectedCategory: action.payload,
       };
-    case 'CHECK_TIMEOUTS': {
+    case 'CHECK_OVERDUE': {
       // Get timeout threshold from environment variable or use default (3 days)
       const timeoutMinutes = parseInt(process.env.REACT_APP_TASK_TIMEOUT_MINUTES || '4320', 10);
       const now = new Date();
       
-      // Check for timed out tasks
+      // Check for overdue tasks
       const updatedTasks = state.tasks.map((task) => {
-        // Skip tasks that are already done or timed out
-        if (task.status === TaskStatus.DONE || task.status === TaskStatus.TIMEOUT) {
+        // Skip tasks that are already done or overdue
+        if (task.status === TaskStatus.DONE || task.status === TaskStatus.OVERDUE) {
           return task;
         }
         
-        // Check if task has timed out based on creation date
+        // Check if the task has passed its due date
+        const dueDate = new Date(task.dueDate);
+        if (dueDate < now) {
+          return { ...task, status: TaskStatus.OVERDUE, isOverdue: true };
+        }
+        
+        // Check if the task has exceeded its duration or total age limit
         const createdAt = new Date(task.createdAt);
-        const ageInMinutes = (now.getTime() - createdAt.getTime()) / (1000 * 60);
+        const taskAge = (now.getTime() - createdAt.getTime()) / (1000 * 60);
         
-        // Check if task has timed out based on duration
-        const isDurationTimeout = task.duration ? task.duration > timeoutMinutes : false;
-        const isAgeTimeout = ageInMinutes > timeoutMinutes;
-        
-        // If task has timed out, update its status
-        if (isDurationTimeout || isAgeTimeout) {
-          return { ...task, status: TaskStatus.TIMEOUT };
+        if (taskAge > timeoutMinutes || (task.duration && task.duration > timeoutMinutes)) {
+          return { ...task, status: TaskStatus.OVERDUE, isOverdue: true };
         }
         
         return task;
@@ -320,9 +321,9 @@ export const TaskProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     dispatch({ type: 'SET_CATEGORY', payload: category });
   };
 
-  // Check for timeouts
-  const checkTimeouts = () => {
-    dispatch({ type: 'CHECK_TIMEOUTS' });
+  // Check for overdue tasks
+  const checkOverdue = () => {
+    dispatch({ type: 'CHECK_OVERDUE' });
   };
 
   // Toggle dark mode
@@ -376,10 +377,10 @@ export const TaskProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return () => clearInterval(pollingInterval);
   }, []);
 
-  // Check for timeouts every minute
+  // Check for overdue tasks every minute
   useEffect(() => {
-    checkTimeouts();
-    const interval = setInterval(checkTimeouts, 60000); // Check every minute
+    checkOverdue();
+    const interval = setInterval(checkOverdue, 60000); // Check every minute
     return () => clearInterval(interval);
   }, [state.tasks]);
 
@@ -393,7 +394,7 @@ export const TaskProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         updateTask,
         deleteTask,
         setSelectedCategory,
-        checkTimeouts,
+        checkOverdue,
         toggleDarkMode,
         moveTask,
         refreshTasks,
