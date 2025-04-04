@@ -5,8 +5,9 @@ import { fetchStreamingData } from '../services/streamingService';
 // Get all tasks
 export const getAllTasks = async (req: Request, res: Response): Promise<void> => {
   try {
-    // Check for tasks that might have timed out
+    // Check for tasks that might have timed out or are overdue
     taskStore.checkTimeouts();
+    taskStore.checkOverdueTasks(); // Add this line to check for overdue tasks
     
     const tasks = taskStore.findAll();
     res.status(200).json(tasks);
@@ -51,13 +52,18 @@ export const createTask = async (req: Request, res: Response): Promise<void> => 
       dueDateObj = new Date(dueDate);
     }
     
+    // Check if the task is already overdue
+    const now = new Date();
+    const initialStatus = dueDateObj < now ? TaskStatus.OVERDUE : (status || TaskStatus.TODO);
+    
     const newTask = taskStore.create({
       title,
       description: description || '',
-      status: status || TaskStatus.TODO,
+      status: initialStatus,
       priority: taskPriority,
       dueDate: dueDateObj,
-      duration: duration ? Number(duration) : undefined
+      duration: duration ? Number(duration) : undefined,
+      isOverdue: dueDateObj < now
     });
     
     res.status(201).json(newTask);
@@ -75,6 +81,13 @@ export const updateTask = async (req: Request, res: Response): Promise<void> => 
     // Parse due date if present
     if (updates.dueDate) {
       updates.dueDate = new Date(updates.dueDate);
+      
+      // Check if the updated due date makes the task overdue
+      const now = new Date();
+      if (updates.dueDate < now && updates.status !== TaskStatus.DONE && updates.status !== TaskStatus.TIMEOUT) {
+        updates.status = TaskStatus.OVERDUE;
+        updates.isOverdue = true;
+      }
     }
     
     const updatedTask = taskStore.update(id, updates);

@@ -10,8 +10,14 @@ interface TaskFormProps {
 
 const TaskForm: React.FC<TaskFormProps> = ({ task, onClose }) => {
   const { createTask, updateTask } = useTaskContext();
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState<boolean>(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  
+  // Determine if fields should be disabled
+  const isIncomplete: boolean = Boolean(task && (
+    task.status === TaskStatus.TIMEOUT || 
+    task.status === TaskStatus.OVERDUE
+  ));
   
   // Get today's date in YYYY-MM-DD format for the date input default
   const today = new Date().toISOString().split('T')[0];
@@ -50,6 +56,11 @@ const TaskForm: React.FC<TaskFormProps> = ({ task, onClose }) => {
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
+    // Don't allow changes if task is incomplete
+    if (isIncomplete && e.target.name !== 'status') {
+      return;
+    }
+    
     const { name, value } = e.target;
     
     // Handle number inputs
@@ -68,6 +79,11 @@ const TaskForm: React.FC<TaskFormProps> = ({ task, onClose }) => {
 
   // Handle priority selection
   const handlePriorityChange = (priority: TaskPriority) => {
+    // Don't allow changes if task is incomplete
+    if (isIncomplete) {
+      return;
+    }
+    
     setFormData({ ...formData, priority });
   };
 
@@ -112,8 +128,14 @@ const TaskForm: React.FC<TaskFormProps> = ({ task, onClose }) => {
       };
       
       if (task) {
-        // Update existing task
-        await updateTask(task.id, updatedFormData);
+        // If task was TIMEOUT or OVERDUE and status is changing, we allow the update
+        if (isIncomplete && formData.status !== task.status) {
+          // Only allow status change, preserve all other fields
+          await updateTask(task.id, { status: formData.status });
+        } else if (!isIncomplete) {
+          // Normal update for non-incomplete tasks
+          await updateTask(task.id, updatedFormData);
+        }
       } else {
         // Create new task
         await createTask(updatedFormData);
@@ -137,6 +159,13 @@ const TaskForm: React.FC<TaskFormProps> = ({ task, onClose }) => {
         
         {errors.form && <div className="form-error">{errors.form}</div>}
         
+        {isIncomplete && (
+          <div className="task-incomplete-notice">
+            This task is {task?.status === TaskStatus.TIMEOUT ? 'timed out' : 'overdue'}. 
+            You can only change its status. Other fields are not editable.
+          </div>
+        )}
+        
         <form onSubmit={handleSubmit} className="task-form">
           <div className="form-group">
             <label htmlFor="title">Title</label>
@@ -147,7 +176,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ task, onClose }) => {
               value={formData.title}
               onChange={handleChange}
               className={errors.title ? 'error' : ''}
-              disabled={loading}
+              disabled={loading || isIncomplete}
             />
             {errors.title && <div className="field-error">{errors.title}</div>}
           </div>
@@ -160,7 +189,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ task, onClose }) => {
               value={formData.description}
               onChange={handleChange}
               rows={4}
-              disabled={loading}
+              disabled={loading || isIncomplete}
             />
           </div>
           
@@ -174,7 +203,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ task, onClose }) => {
               onChange={handleChange}
               min={today}
               className={errors.dueDate ? 'error' : ''}
-              disabled={loading}
+              disabled={loading || isIncomplete}
             />
             {errors.dueDate && <div className="field-error">{errors.dueDate}</div>}
           </div>
@@ -186,26 +215,25 @@ const TaskForm: React.FC<TaskFormProps> = ({ task, onClose }) => {
               name="status"
               value={formData.status}
               onChange={handleChange}
-              disabled={loading || task?.status === TaskStatus.TIMEOUT}
+              disabled={Boolean(loading)}
             >
               {Object.values(TaskStatus).map((status) => (
                 <option 
                   key={status} 
                   value={status}
-                  disabled={task?.status === TaskStatus.TIMEOUT && status !== TaskStatus.TIMEOUT}
                 >
                   {status}
                 </option>
               ))}
             </select>
-            {task?.status === TaskStatus.TIMEOUT && (
-              <div className="field-info">Timed out tasks cannot change status</div>
+            {isIncomplete && (
+              <div className="field-info">You can change the status to reactivate this task</div>
             )}
           </div>
           
           <div className="form-group">
             <label>Priority</label>
-            <div className="priority-options">
+            <div className={`priority-options ${isIncomplete ? 'disabled' : ''}`}>
               <div 
                 className={`priority-option low ${formData.priority === TaskPriority.LOW ? 'selected' : ''}`}
                 onClick={() => handlePriorityChange(TaskPriority.LOW)}
@@ -240,7 +268,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ task, onClose }) => {
               onChange={handleChange}
               min="1"
               className={errors.duration ? 'error' : ''}
-              disabled={loading}
+              disabled={Boolean(loading) || Boolean(isIncomplete)}
             />
             {errors.duration && <div className="field-error">{errors.duration}</div>}
             <div className="field-info">
@@ -262,7 +290,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ task, onClose }) => {
               className="submit-button" 
               disabled={loading}
             >
-              {loading ? 'Saving...' : task ? 'Update Task' : 'Create Task'}
+              {loading ? 'Saving...' : isIncomplete ? 'Change Status' : (task ? 'Update Task' : 'Create Task')}
             </button>
           </div>
         </form>

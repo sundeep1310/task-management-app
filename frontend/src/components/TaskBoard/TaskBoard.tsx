@@ -41,13 +41,18 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ searchTerm = '' }) => {
     };
     
     wakeUpServerIfNeeded();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);  // Empty dependency array is intentional
 
   // Count tasks by status
-  const countTasksByStatus = (status: TaskStatus | 'EXPIRED') => {
+  const countTasksByStatus = (status: TaskStatus | 'EXPIRED' | 'OVERDUE') => {
     if (status === 'EXPIRED') {
       // Count tasks that are timed out
       return filteredTasks.filter(task => task.status === TaskStatus.TIMEOUT).length;
+    }
+    if (status === 'OVERDUE') {
+      // Count tasks that are overdue
+      return filteredTasks.filter(task => task.status === TaskStatus.OVERDUE).length;
     }
     return filteredTasks.filter(task => task.status === status).length;
   };
@@ -77,6 +82,8 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ searchTerm = '' }) => {
   };
 
   const expiredTasksCount = countTasksByStatus('EXPIRED');
+  const overdueTasksCount = countTasksByStatus('OVERDUE');
+  const incompleteTasksCount = expiredTasksCount + overdueTasksCount;
   const activeTasksCount = filteredTasks.length;
   const completedTasksCount = countTasksByStatus(TaskStatus.DONE);
 
@@ -107,8 +114,8 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ searchTerm = '' }) => {
       <div className="task-summary-row">
         <SummaryCard 
           icon="🔴" 
-          title="Expired Tasks" 
-          count={expiredTasksCount} 
+          title="Incomplete Tasks" 
+          count={incompleteTasksCount} 
         />
         <SummaryCard 
           icon="📋" 
@@ -142,6 +149,11 @@ const TaskBoard: React.FC<TaskBoardProps> = ({ searchTerm = '' }) => {
         <TaskColumn 
           title="Timeout" 
           tasks={filteredTasks.filter(task => task.status === TaskStatus.TIMEOUT)}
+          onEditTask={handleEditTask}
+        />
+        <TaskColumn 
+          title="Overdue" 
+          tasks={filteredTasks.filter(task => task.status === TaskStatus.OVERDUE)}
           onEditTask={handleEditTask}
         />
       </div>

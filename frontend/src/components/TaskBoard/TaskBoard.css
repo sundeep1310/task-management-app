@@ -13,7 +13,7 @@
 
 .task-board {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr); /* Changed from 4 to 5 columns */
   gap: 20px;
   overflow-x: auto;
   padding-bottom: 10px;
@@ -103,6 +103,14 @@
 .retry-button:hover {
   background-color: var(--color-todo);
   transform: translateY(-2px);
+}
+
+/* Responsive styles for different screen sizes */
+@media (max-width: 1200px) {
+  .task-board {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+  }
 }
 
 @media (max-width: 1024px) {

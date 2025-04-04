@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Task, TaskStatus, TaskPriority } from '../../types';
 import { useTaskContext } from '../../context/TaskContext';
 import './TaskCard.css';
@@ -13,6 +13,16 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit }) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const [showMenu, setShowMenu] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [touchTimeout, setTouchTimeout] = useState<NodeJS.Timeout | null>(null);
+  
+  // Mobile touch handling
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
+  
+  // Detect touch device on component mount
+  useEffect(() => {
+    setIsTouchDevice('ontouchstart' in window || navigator.maxTouchPoints > 0);
+  }, []);
   
   // Format date
   const formatDate = (dateString: string) => {
@@ -68,6 +78,10 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit }) => {
       return { text: 'Expired', className: 'priority-expired' };
     }
     
+    if (task.status === TaskStatus.OVERDUE) {
+      return { text: 'Overdue', className: 'priority-expired' };
+    }
+    
     // Use the priority from the task or default to Low
     if (task.priority === TaskPriority.HIGH) {
       return { text: 'High', className: 'priority-high' };
@@ -78,7 +92,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit }) => {
     }
   };
 
-  // Drag and drop functionality
+  // Desktop Drag and drop functionality
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
     e.dataTransfer.setData('taskId', task.id);
     
@@ -118,6 +132,8 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit }) => {
     if (cardRef.current) {
       cardRef.current.classList.add('dragging');
     }
+    
+    setIsDragging(true);
   };
 
   const handleDragEnd = () => {
@@ -125,6 +141,179 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit }) => {
     if (cardRef.current) {
       cardRef.current.classList.remove('dragging');
     }
+    setIsDragging(false);
+  };
+  
+  // Touch handlers for mobile drag and drop
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    // Don't handle touch events for menu items or tasks that can't be moved
+    if (task.status === TaskStatus.TIMEOUT || isDeleting) {
+      return;
+    }
+    
+    // Use a timeout to differentiate between tap and long press
+    const touchTimer = setTimeout(() => {
+      if (cardRef.current) {
+        cardRef.current.classList.add('dragging');
+        setIsDragging(true);
+        
+        // Set task drag data in a global variable since dataTransfer is not available in touch events
+        window.draggedTask = {
+          id: task.id,
+          priority: task.priority || TaskPriority.LOW, // Provide default value
+          element: cardRef.current
+        };
+        
+        // Create visual feedback for dragging
+        if (cardRef.current) {
+          cardRef.current.style.opacity = '0.7';
+          cardRef.current.style.transform = 'scale(0.95)';
+        }
+      }
+    }, 300); // 300ms long press to start drag
+    
+    setTouchTimeout(touchTimer);
+  };
+  
+  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    // Only handle if we're actually dragging
+    if (!isDragging || !window.draggedTask) {
+      return;
+    }
+    
+    e.preventDefault(); // Prevent screen scrolling while dragging
+    
+    const touch = e.touches[0];
+    
+    // Move the card with the finger
+    if (cardRef.current) {
+      // Use translate3d for better performance
+      cardRef.current.style.position = 'fixed';
+      cardRef.current.style.zIndex = '1000';
+      cardRef.current.style.left = `${touch.pageX - cardRef.current.offsetWidth / 2}px`;
+      cardRef.current.style.top = `${touch.pageY - cardRef.current.offsetHeight / 2}px`;
+    }
+    
+    // Check if the touch is over any drop targets
+    const elementsUnderTouch = document.elementsFromPoint(touch.clientX, touch.clientY);
+    
+    // Find column elements under the touch point
+    const columnUnderTouch = elementsUnderTouch.find(el => 
+      el.classList.contains('task-column')
+    );
+    
+    // Remove drag-over class from all columns
+    document.querySelectorAll('.task-column').forEach(column => {
+      column.classList.remove('drag-over');
+    });
+    
+    // Add drag-over class to the column under touch
+    if (columnUnderTouch) {
+      columnUnderTouch.classList.add('drag-over');
+    }
+  };
+  
+  const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+    // Clear the long press timer if it exists
+    if (touchTimeout) {
+      clearTimeout(touchTimeout);
+      setTouchTimeout(null);
+    }
+    
+    // If we're not dragging, do nothing
+    if (!isDragging || !window.draggedTask) {
+      return;
+    }
+    
+    e.preventDefault();
+    
+    // Get the touch location
+    const touch = e.changedTouches[0];
+    const elementsUnderTouch = document.elementsFromPoint(touch.clientX, touch.clientY);
+    
+    // Find column elements under the touch point
+    const columnUnderTouch = elementsUnderTouch.find(el => 
+      el.classList.contains('task-column')
+    ) as HTMLElement;
+    
+    // Reset card styles
+    if (cardRef.current) {
+      cardRef.current.style.position = '';
+      cardRef.current.style.zIndex = '';
+      cardRef.current.style.left = '';
+      cardRef.current.style.top = '';
+      cardRef.current.style.opacity = '';
+      cardRef.current.style.transform = '';
+      cardRef.current.classList.remove('dragging');
+    }
+    
+    // If we have a valid drop target, handle the drop
+    if (columnUnderTouch) {
+      // Get the column status
+      const columnClasses = columnUnderTouch.className.split(' ');
+      let newStatus: TaskStatus | null = null;
+      
+      if (columnClasses.includes('column-todo')) {
+        newStatus = TaskStatus.TODO;
+      } else if (columnClasses.includes('column-progress')) {
+        newStatus = TaskStatus.IN_PROGRESS;
+      } else if (columnClasses.includes('column-done')) {
+        newStatus = TaskStatus.DONE;
+      } else if (columnClasses.includes('column-timeout')) {
+        newStatus = TaskStatus.TIMEOUT;
+      }
+      
+      // Trigger the drop event if we have a valid status
+      if (newStatus) {
+        // Create a new custom event
+        const dropEvent = new CustomEvent('task-dropped', {
+          detail: {
+            taskId: task.id,
+            newStatus: newStatus
+          }
+        });
+        
+        // Dispatch the event on the column
+        columnUnderTouch.dispatchEvent(dropEvent);
+      }
+    }
+    
+    // Remove drag-over class from all columns
+    document.querySelectorAll('.task-column').forEach(column => {
+      column.classList.remove('drag-over');
+    });
+    
+    // Clear dragged task
+    window.draggedTask = null;
+    setIsDragging(false);
+  };
+  
+  const handleTouchCancel = (e: React.TouchEvent<HTMLDivElement>) => {
+    // Clear the long press timer if it exists
+    if (touchTimeout) {
+      clearTimeout(touchTimeout);
+      setTouchTimeout(null);
+    }
+    
+    // Reset card styles
+    if (cardRef.current) {
+      cardRef.current.style.position = '';
+      cardRef.current.style.zIndex = '';
+      cardRef.current.style.left = '';
+      cardRef.current.style.top = '';
+      cardRef.current.style.opacity = '';
+      cardRef.current.style.transform = '';
+      cardRef.current.classList.remove('dragging');
+    }
+    
+    // Remove drag-over class from all columns
+    document.querySelectorAll('.task-column').forEach(column => {
+      column.classList.remove('drag-over');
+    });
+    
+    // Clear dragged task
+    window.draggedTask = null;
+    setIsDragging(false);
   };
 
   const handleMenuClick = (e: React.MouseEvent) => {
@@ -166,15 +355,24 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit }) => {
 
   const priority = getPriorityLabel();
   const dateInfo = getDateDisplay();
+  
+  // Determine if the task is draggable
+  const isDraggable = task.status !== TaskStatus.TIMEOUT && 
+                      task.status !== TaskStatus.OVERDUE && 
+                      !isDeleting;
 
   return (
     <div 
       ref={cardRef}
-      className={`task-card ${isDeleting ? 'deleting' : ''}`}
+      className={`task-card ${isDeleting ? 'deleting' : ''} ${isDragging ? 'dragging' : ''}`}
       onClick={handleCardClick}
-      draggable={task.status !== TaskStatus.TIMEOUT && !isDeleting}
+      draggable={!isTouchDevice && isDraggable}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
+      onTouchStart={isTouchDevice ? handleTouchStart : undefined}
+      onTouchMove={isTouchDevice ? handleTouchMove : undefined}
+      onTouchEnd={isTouchDevice ? handleTouchEnd : undefined}
+      onTouchCancel={isTouchDevice ? handleTouchCancel : undefined}
       data-task-id={task.id}
     >
       <div className="task-card-header">
@@ -228,5 +426,19 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit }) => {
     </div>
   );
 };
+
+// Add a global type for the dragged task data
+declare global {
+  interface Window {
+    draggedTask: {
+      id: string;
+      priority: TaskPriority;  // Use TaskPriority instead of TaskPriority | undefined
+      element: HTMLElement;
+    } | null;
+  }
+}
+
+// Initialize the global variable
+window.draggedTask = null;
 
 export default TaskCard;

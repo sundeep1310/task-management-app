@@ -8,6 +8,7 @@
   position: relative;
   color: var(--text-primary);
   user-select: none;
+  touch-action: none; /* Prevent default touch actions for drag cards */
 }
 
 .task-card:hover {
@@ -20,6 +21,32 @@
   cursor: grabbing;
   box-shadow: 0 8px 16px var(--shadow-color);
   transform: scale(0.95);
+  z-index: 100;
+}
+
+/* Mobile touch styles */
+@media (hover: none) and (pointer: coarse) {
+  .task-card {
+    cursor: default; /* Reset cursor for touch devices */
+  }
+  
+  .task-card:hover {
+    transform: none; /* Disable hover effect on touch devices */
+    box-shadow: 0 1px 3px var(--shadow-color);
+  }
+  
+  .task-card:active {
+    transform: scale(0.98); /* Subtle feedback when tapping */
+  }
+  
+  .task-card.dragging {
+    position: fixed !important;
+    z-index: 1000 !important;
+    opacity: 0.9;
+    box-shadow: 0 8px 24px var(--shadow-color);
+    transform: scale(0.95);
+    width: calc(100% - 40px); /* Use a fixed width that works well on mobile */
+  }
 }
 
 .task-card-header {
@@ -194,4 +221,25 @@
   opacity: 0.5;
   transform: scale(0.95);
   pointer-events: none;
+}
+
+/* Task states */
+.task-card.non-editable {
+  opacity: 0.85;
+  cursor: not-allowed;
+}
+
+.task-card.non-editable .task-menu-btn {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Enhanced visual feedback for touch */
+.column-content {
+  position: relative;
+}
+
+.task-column.drag-over {
+  background-color: var(--bg-primary);
+  box-shadow: 0 0 0 2px var(--header-bg), 0 0 15px var(--shadow-color);
 }

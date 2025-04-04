@@ -8,7 +8,8 @@ export enum TaskStatus {
   TODO = "To Do",
   IN_PROGRESS = "In Progress",
   DONE = "Done",
-  TIMEOUT = "Timeout"
+  TIMEOUT = "Timeout",
+  OVERDUE = "Overdue"  // Add OVERDUE status
 }
 
 export enum TaskPriority {
@@ -28,6 +29,7 @@ export interface Task {
   dueDate: Date;
   duration?: number; // Duration in minutes
   streamingData?: any; // Additional data from streaming API
+  isOverdue?: boolean; // Flag for tracking overdue status
 }
 
 // Ensure absolute path resolution
@@ -276,13 +278,15 @@ class TaskStore {
     return false;
   }
 
-  // Check for task timeouts
-  checkTimeouts(timeoutMinutes: number = 4320): Task[] {
+  // Check for tasks that have timed out based on duration or age
+  checkTimeoutTasks(timeoutMinutes: number = 4320): Task[] {
     const now = new Date();
     const timeoutTasks: Task[] = [];
     
     this.tasks.forEach(task => {
-      if (task.status !== TaskStatus.DONE && task.status !== TaskStatus.TIMEOUT) {
+      if (task.status !== TaskStatus.DONE && 
+          task.status !== TaskStatus.TIMEOUT &&
+          task.status !== TaskStatus.OVERDUE) {
         const taskAge = (now.getTime() - task.createdAt.getTime()) / (1000 * 60);
         
         if (taskAge > timeoutMinutes || (task.duration && task.duration > timeoutMinutes)) {
@@ -298,6 +302,43 @@ class TaskStore {
     }
     
     return timeoutTasks;
+  }
+
+  // Check for tasks that are past their due date
+  checkOverdueTasks(): Task[] {
+    const now = new Date();
+    const overdueTasks: Task[] = [];
+    
+    this.tasks.forEach(task => {
+      // Skip tasks that are done, timed out, or already overdue
+      if (task.status === TaskStatus.DONE || 
+          task.status === TaskStatus.TIMEOUT ||
+          task.status === TaskStatus.OVERDUE) {
+        return;
+      }
+      
+      // Check if the task is past its due date
+      if (task.dueDate && task.dueDate < now) {
+        task.status = TaskStatus.OVERDUE;
+        task.isOverdue = true;
+        task.updatedAt = now;
+        overdueTasks.push(task);
+      }
+    });
+    
+    if (overdueTasks.length > 0) {
+      this.saveTasks();
+    }
+    
+    return overdueTasks;
+  }
+
+  // Check for both timeouts and overdue tasks
+  checkTimeouts(timeoutMinutes: number = 4320): Task[] {
+    const timeoutTasks = this.checkTimeoutTasks(timeoutMinutes);
+    const overdueTasks = this.checkOverdueTasks();
+    
+    return [...timeoutTasks, ...overdueTasks];
   }
 }
 
