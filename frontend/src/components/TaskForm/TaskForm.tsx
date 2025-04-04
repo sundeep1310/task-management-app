@@ -14,10 +14,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ task, onClose }) => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   
   // Determine if fields should be disabled
-  const isIncomplete: boolean = Boolean(task && (
-    task.status === TaskStatus.TIMEOUT || 
-    task.status === TaskStatus.OVERDUE
-  ));
+  const isIncomplete: boolean = Boolean(task && task.status === TaskStatus.OVERDUE);
   
   // Get today's date in YYYY-MM-DD format for the date input default
   const today = new Date().toISOString().split('T')[0];
@@ -128,7 +125,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ task, onClose }) => {
       };
       
       if (task) {
-        // If task was TIMEOUT or OVERDUE and status is changing, we allow the update
+        // If task was OVERDUE and status is changing, we allow the update
         if (isIncomplete && formData.status !== task.status) {
           // Only allow status change, preserve all other fields
           await updateTask(task.id, { status: formData.status });
@@ -161,8 +158,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ task, onClose }) => {
         
         {isIncomplete && (
           <div className="task-incomplete-notice">
-            This task is {task?.status === TaskStatus.TIMEOUT ? 'timed out' : 'overdue'}. 
-            You can only change its status. Other fields are not editable.
+            This task is overdue. You can only change its status. Other fields are not editable.
           </div>
         )}
         
@@ -272,7 +268,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ task, onClose }) => {
             />
             {errors.duration && <div className="field-error">{errors.duration}</div>}
             <div className="field-info">
-              Tasks will time out automatically if their duration exceeds the system limit
+              Tasks will become overdue automatically if their duration exceeds the system limit
             </div>
           </div>
           

@@ -5,9 +5,8 @@ import { fetchStreamingData } from '../services/streamingService';
 // Get all tasks
 export const getAllTasks = async (req: Request, res: Response): Promise<void> => {
   try {
-    // Check for tasks that might have timed out or are overdue
-    taskStore.checkTimeouts();
-    taskStore.checkOverdueTasks(); // Add this line to check for overdue tasks
+    // Check for tasks that are overdue
+    taskStore.checkOverdueTasks();
     
     const tasks = taskStore.findAll();
     res.status(200).json(tasks);
@@ -84,7 +83,7 @@ export const updateTask = async (req: Request, res: Response): Promise<void> => 
       
       // Check if the updated due date makes the task overdue
       const now = new Date();
-      if (updates.dueDate < now && updates.status !== TaskStatus.DONE && updates.status !== TaskStatus.TIMEOUT) {
+      if (updates.dueDate < now && updates.status !== TaskStatus.DONE) {
         updates.status = TaskStatus.OVERDUE;
         updates.isOverdue = true;
       }

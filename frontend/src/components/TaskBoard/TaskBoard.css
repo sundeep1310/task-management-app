@@ -13,7 +13,7 @@
 
 .task-board {
   display: grid;
-  grid-template-columns: repeat(5, 1fr); /* Changed from 4 to 5 columns */
+  grid-template-columns: repeat(4, 1fr); /* 4 columns for the 4 statuses */
   gap: 20px;
   overflow-x: auto;
   padding-bottom: 10px;
@@ -106,13 +106,6 @@
 }
 
 /* Responsive styles for different screen sizes */
-@media (max-width: 1200px) {
-  .task-board {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 15px;
-  }
-}
-
 @media (max-width: 1024px) {
   .task-board {
     grid-template-columns: repeat(2, 1fr);

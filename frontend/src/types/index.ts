@@ -3,8 +3,7 @@ export enum TaskStatus {
   TODO = "To Do",
   IN_PROGRESS = "In Progress",
   DONE = "Done",
-  TIMEOUT = "Timeout",
-  OVERDUE = "Overdue"  // Added OVERDUE status
+  OVERDUE = "Overdue"  // Only OVERDUE, no TIMEOUT
 }
 
 // Priority enum

@@ -22,9 +22,8 @@ const TaskColumn: React.FC<TaskColumnProps> = ({ title, tasks, onEditTask }) => 
         return 'column-progress';
       case 'Done':
         return 'column-done';
-      case 'Timeout':
       case 'Overdue':
-        return 'column-timeout';
+        return 'column-overdue'; // Changed from column-timeout
       default:
         return '';
     }
@@ -38,8 +37,6 @@ const TaskColumn: React.FC<TaskColumnProps> = ({ title, tasks, onEditTask }) => 
         return TaskStatus.IN_PROGRESS;
       case 'Done':
         return TaskStatus.DONE;
-      case 'Timeout':
-        return TaskStatus.TIMEOUT;
       case 'Overdue':
         return TaskStatus.OVERDUE;
       default:

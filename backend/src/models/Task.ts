@@ -8,8 +8,7 @@ export enum TaskStatus {
   TODO = "To Do",
   IN_PROGRESS = "In Progress",
   DONE = "Done",
-  TIMEOUT = "Timeout",
-  OVERDUE = "Overdue"  // Add OVERDUE status
+  OVERDUE = "Overdue"  // Only OVERDUE, no TIMEOUT
 }
 
 export enum TaskPriority {
@@ -278,42 +277,14 @@ class TaskStore {
     return false;
   }
 
-  // Check for tasks that have timed out based on duration or age
-  checkTimeoutTasks(timeoutMinutes: number = 4320): Task[] {
-    const now = new Date();
-    const timeoutTasks: Task[] = [];
-    
-    this.tasks.forEach(task => {
-      if (task.status !== TaskStatus.DONE && 
-          task.status !== TaskStatus.TIMEOUT &&
-          task.status !== TaskStatus.OVERDUE) {
-        const taskAge = (now.getTime() - task.createdAt.getTime()) / (1000 * 60);
-        
-        if (taskAge > timeoutMinutes || (task.duration && task.duration > timeoutMinutes)) {
-          task.status = TaskStatus.TIMEOUT;
-          task.updatedAt = now;
-          timeoutTasks.push(task);
-        }
-      }
-    });
-    
-    if (timeoutTasks.length > 0) {
-      this.saveTasks();
-    }
-    
-    return timeoutTasks;
-  }
-
-  // Check for tasks that are past their due date
-  checkOverdueTasks(): Task[] {
+  // Check for overdue tasks - combined logic for both due date and duration timeouts
+  checkOverdueTasks(timeoutMinutes: number = 4320): Task[] {
     const now = new Date();
     const overdueTasks: Task[] = [];
     
     this.tasks.forEach(task => {
-      // Skip tasks that are done, timed out, or already overdue
-      if (task.status === TaskStatus.DONE || 
-          task.status === TaskStatus.TIMEOUT ||
-          task.status === TaskStatus.OVERDUE) {
+      // Skip tasks that are done or already overdue
+      if (task.status === TaskStatus.DONE || task.status === TaskStatus.OVERDUE) {
         return;
       }
       
@@ -323,6 +294,20 @@ class TaskStore {
         task.isOverdue = true;
         task.updatedAt = now;
         overdueTasks.push(task);
+        return; // Skip the next check if already marked overdue
+      }
+      
+      // Also check if the task has exceeded its duration or total age limit
+      const taskAge = (now.getTime() - task.createdAt.getTime()) / (1000 * 60);
+      if (taskAge > timeoutMinutes || (task.duration && task.duration > timeoutMinutes)) {
+        task.status = TaskStatus.OVERDUE;
+        task.isOverdue = true;
+        task.updatedAt = now;
+        
+        // Only add to overdueTasks if not already added
+        if (!overdueTasks.includes(task)) {
+          overdueTasks.push(task);
+        }
       }
     });
     
@@ -333,12 +318,9 @@ class TaskStore {
     return overdueTasks;
   }
 
-  // Check for both timeouts and overdue tasks
+  // Alias for backward compatibility
   checkTimeouts(timeoutMinutes: number = 4320): Task[] {
-    const timeoutTasks = this.checkTimeoutTasks(timeoutMinutes);
-    const overdueTasks = this.checkOverdueTasks();
-    
-    return [...timeoutTasks, ...overdueTasks];
+    return this.checkOverdueTasks(timeoutMinutes);
   }
 }
 
